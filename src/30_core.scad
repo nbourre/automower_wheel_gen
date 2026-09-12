@@ -56,6 +56,7 @@ module spokes() {
 // piece build never has to run a boolean against 16 twisted lugs.
 module wheel_inner() {
     hub_body();
+    hub_register();
     face_skin();
     spokes();
 }
@@ -87,6 +88,7 @@ module one_piece_wheel() {
     fit_guard();
     difference() {
         intersection() { wheel_solid(); build_plate_box(); }
+        shroud_relief();
         hub_bore();
     }
 }

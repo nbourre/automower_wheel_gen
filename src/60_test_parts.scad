@@ -13,6 +13,9 @@
 // =====================================================================
 
 /* [Fit test] */
+// Which test part to output. One at a time keeps each print short: check
+// the bore first, then the hub interface, then the overall diameter.
+fit_test_part = "all";          // [all:All three, gauge:Bore gauge only, coupon:Hub coupon only, skeleton:Skeleton only]
 // Clearances to try, added to the bore RADIUS, smallest first.
 gauge_steps = [0, 0.10, 0.15, 0.20, 0.30];
 // Text height on the gauge (mm). 0 removes the labels.
@@ -20,6 +23,16 @@ gauge_text = 5;                 // [0:0.5:12]
 gauge_text_depth = 0.6;         // [0.2:0.1:2]
 // How much of the wheel around the hub to keep on the coupon (mm)
 coupon_margin = 20;             // [5:1:60]
+// Skeleton: number of arms reaching out to full diameter
+skeleton_arms = 3;              // [2:1:8]
+// Angular width of the rim segment carried at the end of each arm (deg)
+skeleton_arc = 24;              // [8:1:70]
+// Where the first arm points. 45 keeps the arms away from the four flats,
+// so every arm carries the full overall diameter.
+skeleton_phase = 45;            // [0:1:180]
+// Width of the flat strip under each arm, which is what holds it to the
+// plate and stops the arm being a bare 3 mm wall
+skeleton_arm_width = 14;        // [6:1:40]
 
 /* [Hidden] */
 gauge_font = "Liberation Sans"; // font
@@ -75,6 +88,7 @@ module hub_coupon() {
                 union() { hub_body(); face_skin(); spokes(); }
                 cylinder(r = hub_outer_r() + coupon_margin, h = wheel_width);
             }
+            shroud_relief();
             hub_bore();
         }
         // Stamp the clearance used, so a coupon found in a drawer in six
@@ -86,5 +100,53 @@ module hub_coupon() {
                 linear_extrude(height = gauge_text_depth + 0.3)
                     text(str(bore_clearance), size = gauge_text * 0.8,
                          font = gauge_font, halign = "center", valign = "center");
+    }
+}
+
+
+// ---- part 3: skeleton -----------------------------------------------
+// The whole wheel reduced to what you actually need to test: the real hub,
+// a few arms out to the real overall diameter, and a real piece of tread
+// at the end of each one. Bolt it on, turn it by hand, and you find out in
+// twenty minutes whether the hub seats and whether the lugs clear the
+// bodywork. Every dimension comes from the same modules as the wheel, so
+// nothing here is a lookalike.
+module skeleton_arm() {
+    spoke();
+    // flat strip on the plate side, turns the arm into a T beam
+    translate([0, 0, skin_thickness / 2])
+        translate([(hub_outer_r() - weld + rim_bore_r() + weld) / 2, 0, 0])
+            cube([rim_bore_r() + weld - hub_outer_r() + weld,
+                  skeleton_arm_width, skin_thickness], center = true);
+}
+
+module skeleton_wedge(a) {
+    rotate([0, 0, -a / 2])
+        rotate_extrude(angle = a)
+            square([tip_r() + 2, wheel_width]);
+}
+
+module skeleton() {
+    step = 360 / skeleton_arms;
+    difference() {
+        intersection() {
+            union() {
+                hub_body();
+                for (i = [0 : skeleton_arms - 1])
+                    rotate([0, 0, skeleton_phase + i * step]) skeleton_arm();
+                // one intersection for the whole tread, not one per arm
+                intersection() {
+                    union() { rim(); tread(); }
+                    union() {
+                        for (i = [0 : skeleton_arms - 1])
+                            rotate([0, 0, skeleton_phase + i * step])
+                                skeleton_wedge(skeleton_arc);
+                    }
+                }
+            }
+            build_plate_box();
+        }
+        shroud_relief();
+        hub_bore();
     }
 }

@@ -22,11 +22,16 @@ hub_type = "husqvarna_115h";    // [husqvarna_115h:Husqvarna Automower 105/115H,
 
 /* [Wheel size] */
 // Overall diameter measured over the tips of the lugs (mm)
-wheel_diameter = 262.4;         // [80:0.1:400]
+wheel_diameter = 240;           // [80:0.1:400]
 // Diameter at the base of the lugs, i.e. the rim itself (mm)
-rim_diameter = 240;             // [60:0.1:380]
+rim_diameter = 218;             // [60:0.1:380]
 // Total width of the wheel (mm)
 wheel_width = 32;               // [8:0.5:120]
+// Hard limit on the diameter over the lugs, for a wheel arch that will not
+// take the full size. Measure the arch, subtract the clearance you want,
+// and put the result here. 0 disables the limit.
+// Only the lugs are shortened; the rim keeps rim_diameter.
+max_overall_diameter = 0;       // [0:0.5:400]
 
 /* [Tread] */
 tread_type = "chevron_mixed";   // [chevron_mixed:Chevrons + intermediate chevrons, chevron:Chevrons only, spikes:Triangular spikes, blocks:Straight blocks]
@@ -67,6 +72,42 @@ fit_clearance = 0.25;           // [0.05:0.05:0.6]
 // wheels drive through the bore, they are clamped by the centre screw,
 // so a snug bore is what stops the wheel wobbling on the shaft.
 bore_clearance = 0.15;          // [0:0.05:1]
+
+/* [Mower side clearance] */
+// THE most important group on the inner face. The drive disc turns with the
+// wheel; the shroud around it does NOT. Anything on the wheel that touches
+// that shroud is a brake pad, and the mower will stall.
+//
+// Diameter of the rotating drive disc the wheel seats on.
+drive_disc_diameter = 47.6;     // [10:0.1:200]
+// Radial margin kept inside the disc, so the seating pad cannot creep past
+// its edge and catch on whatever is beyond.
+seat_margin = 1.5;              // [0:0.1:10]
+// Outer diameter of the STATIONARY shroud around the drive disc.
+shroud_od = 60.42;              // [10:0.1:250]
+// Radial margin kept outside the shroud as well.
+shroud_margin = 2;              // [0:0.1:20]
+// How far the wheel is cut back from its seating face everywhere outside
+// the seating pad. This is the air gap between a part that turns and a part
+// that does not, so do not be stingy with it.
+shroud_clearance = 3;           // [0:0.1:20]
+
+/* [Hub register ring] */
+// Some machines have a real groove for a centring ring. The 115H does not:
+// what looked like a groove is the gap around a stationary shroud, so this
+// is "none" by default. Only turn it on for a machine where you have
+// confirmed the wheel is MEANT to engage something there.
+register_mode = "none";         // [none:No ring, auto:Computed from the groove, manual:Set the diameter myself]
+drive_lip_od = 60.42;           // [12:0.1:250]
+drive_lip_wall = 3;             // [0.3:0.1:15]
+register_wall = 2.5;            // [0.8:0.1:12]
+register_clearance = 0.3;       // [0:0.05:2]
+register_od = 54.2;             // [0:0.1:250]
+
+/* [Hub plate] */
+// Thickness of the hub plate. On the 115H this falls out of the shaft
+// measurements: 20 mm of shaft, 12 mm still showing with the wheel on.
+hub_plate_thickness = 8;        // [3:0.1:30]
 
 /* [Hex drive hub] */
 // Used when hub_type is hex_drive. Both donor wheels measured so far come

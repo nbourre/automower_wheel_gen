@@ -46,6 +46,89 @@ The only overhang left in the whole model is the ceiling of the hub recess, an
 annulus around the axle bore that bridges over a shallow pocket. It closes on
 its own.
 
+## Which way round does it go
+
+**The solid face goes outward. The spokes face the mower.** Get this backwards
+and nothing fits.
+
+The reason is the drive boss. On the 115H it stands 20 mm proud of its seat, and
+with the stock wheel on, 12 mm is still showing. So the boss passes right
+through the hub plate and needs somewhere to go on the far side: that is the
+recess in the middle of the outer face, where the washer and the screw also sit.
+The mower side needs the opposite, an open pocket whose floor seats on the drive
+disc.
+
+This also means the two wheels are mirror images rather than one part flipped
+over, which is what `side` is for.
+
+### How the 115H hub numbers were derived
+
+| Measured | |
+|---|---|
+| shaft proud of its seat | 20.0 |
+| shaft still showing with the stock wheel on | 12.0 |
+| pocket on the inner face | 54.20 bore, 2.50 wall |
+| drive disc on the mower | 47.60 |
+| black surround | 60.42 |
+| screw boss | 16.0 |
+
+20 minus 12 gives a **hub plate 8 mm thick**, and the pocket floor is the face
+the wheel seats on. That fixes the plate across the width once you know
+`pocket_depth`. ### The inner face: what turns and what does not
+
+The drive disc turns with the wheel. The shroud around it does not, and it sits
+lower than the disc. **Anything on the wheel that reaches the shroud is a brake
+pad**, and the mower stalls. This is the single easiest way to produce a wheel
+that looks right and does not work.
+
+So the inner face is deliberately mean about where it makes contact. A seating
+pad runs from the bore out to `drive_disc_diameter/2 - seat_margin`, and that is
+the only place the wheel touches anything. From there out to
+`shroud_od/2 + shroud_margin` the face is cut back by `shroud_clearance`, a
+straight air gap between a part that turns and a part that does not. On the 115H
+the generator echoes:
+
+```
+inner face: seating pad up to Ø44.6 on a disc of Ø47.6
+| cut back 3 mm from Ø44.6 out to Ø64.42
+| stationary shroud is Ø60.42
+```
+
+The relief is carved from the top in print orientation, so its floor faces up
+and it costs nothing to print.
+
+An earlier version of this generator put a centring ring on the inner face,
+reading the gap around the shroud as a groove meant to be engaged. It is not.
+`register_mode` still exists for a machine that genuinely has one, but it
+defaults to `none`, and it should stay there unless you have confirmed on the
+actual mower that the wheel is meant to engage something.
+
+### Where the hub plate sits
+
+The plate is `hub_plate_thickness` thick and its back face IS the seating face,
+so it needs no separately measured pocket depth. On the 115H: 8 mm of plate, a
+20 mm shaft, and 12 mm still showing once the wheel is on. 20 minus 8 is 12, so
+the arithmetic closes on measurements alone.
+
+## When the wheel does not clear the bodywork
+
+`max_overall_diameter` is a hard ceiling on the diameter over the lugs. Measure
+the wheel arch, subtract the clearance you want, and put the result in. 0
+disables the limit.
+
+It trims lugs, so it only helps for a few millimetres. If you are over by more
+than the lug height, the wheel is simply the wrong size and both
+`wheel_diameter` and `rim_diameter` need to come down together. That was the
+case here: the donor STL was 262.4 over the lugs against a stock wheel of 240,
+and its tread scrubbed the bodywork. The defaults are now 240 and 218, which
+also means a 115H wheel needs no flats at all on a 256 plate.
+
+Only the lugs get shorter. `rim_diameter` is untouched, so the mower does not
+drop and the rolling diameter in grass barely moves, since in anything but bare
+soil the rim carries most of the load. This is the right knob when the tread is
+scrubbing the body, and it beats shrinking the whole wheel, which changes ride
+height and therefore cutting height.
+
 ## Wheels bigger than the plate
 
 A 262 mm wheel does not fit a 256 mm plate. The generator cuts four flats and
@@ -82,7 +165,7 @@ the two-piece version only if you want one of the three benefits above.
 | Group | What to measure |
 |---|---|
 | Mower | Which hub interface. Named mowers carry their own numbers. |
-| Wheel size | Overall diameter over the lugs, diameter at the base of the lugs, total width. |
+| Wheel size | Overall diameter over the lugs, diameter at the base of the lugs, total width, arch limit. |
 | Tread | Pattern, lug count, lug widths, chevron sweep, lug chamfer. |
 | Structure | Spoke count and thickness, skin thickness, rim thickness. |
 | Printing | Plate size, margin, one or two piece, left or right, fit clearance. |
@@ -109,6 +192,21 @@ goes on without forcing. That number goes into `bore_clearance`.
 Default steps are 0, 0.10, 0.15, 0.20 and 0.30 mm on the radius. Edit
 `gauge_steps` if your printer runs well off size. On the 115H the bar comes out
 133 x 35 x 9 mm.
+
+`fit_test_part` picks one part at a time so each print stays short: check the
+bore first, then the hub interface, then the overall diameter. Left on `all`,
+plate 1 is the gauge, plate 2 the skeleton, plate 3 the coupon.
+
+**The skeleton** is the whole wheel reduced to what you actually need to test:
+the real hub, three arms out to the real overall diameter, and a real piece of
+tread at the end of each one. Bolt it on, turn it by hand, and in twenty minutes
+you know whether the hub seats and whether the lugs clear the bodywork. Every
+dimension comes from the same modules as the wheel, so nothing on it is a
+lookalike. 124 cm3 of envelope against 449 for the wheel.
+
+The arms sit 45 degrees off the four flats, so each one carries the full overall
+diameter even with truncation on. `skeleton_arms`, `skeleton_arc` and
+`skeleton_arm_width` are there if you want it lighter or stiffer.
 
 **The hub coupon** is the real hub with the wheel around it cut down to a disc,
 built from the same modules as the wheel and printed in the same orientation. It
@@ -137,7 +235,7 @@ same orientation as the wheel. Do not let the slicer rotate them.
 
 | `hub_type` | Bore | Suggested wheel | Source of the numbers |
 |---|---|---|---|
-| `husqvarna_115h` | 16.0 | 262.4 / 240 / 32 | shaft measured at 15.9 mm with calipers |
+| `husqvarna_115h` | 16.3 | 240 / 218 / 32 | measured on the machine, see below |
 | `husqvarna_nera` | 17.0 | 251 / 234 / 30 | measured off a donor STL for 310E, 320, 410XE, 430X, 450X NERA |
 | `hex_drive` | hex 26.5 af | yours | two donor models, 26.4 and 26.85 across flats |
 | `plain_bore`, `hex_bore`, `splined` | yours | yours | the Generic hub group |

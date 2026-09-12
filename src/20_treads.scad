@@ -7,7 +7,12 @@
 //  from the wheel axis. tread_max_lean() reports the actual figure.
 // =====================================================================
 
-function tip_r()     = wheel_diameter / 2;
+// Overall radius, after the wheel arch limit is applied. Only the lugs get
+// shorter: the rim keeps its diameter, so the mower does not drop and the
+// rolling diameter in grass barely moves.
+function tip_r() = max_overall_diameter > 0
+    ? max(rim_r() + 0.5, min(wheel_diameter, max_overall_diameter) / 2)
+    : wheel_diameter / 2;
 function rim_r()     = rim_diameter / 2;
 function rim_bore_r()= rim_r() - rim_thickness;
 function lug_height()= tip_r() - rim_r();
@@ -16,16 +21,19 @@ function lug_height()= tip_r() - rim_r();
 function tread_max_lean() =
     atan(tip_r() * chevron_sweep * PI / 180 / (wheel_width / 2));
 
-// 2D section of one lug, x = radius, y = tangential
+// 2D section of one lug, x = radius, y = tangential.
+// The inner end stops just INSIDE the rim bore. Reaching past it, as an
+// earlier version did, leaves every lug standing proud on the inside face
+// of the rim: visible, and material for nothing.
 module lug_section(base, tip, r_ext) {
     xs = sqrt(r_ext * r_ext - tip * tip / 4);   // corners land on r_ext
     polygon([
-        [rim_bore_r() - 1,  base / 2],
+        [rim_bore_r() + weld,  base / 2],
         [rim_r(),           base / 2],
         [xs,                tip / 2],
         [xs,               -tip / 2],
-        [rim_r(),          -base / 2],
-        [rim_bore_r() - 1, -base / 2]
+        [rim_r(),             -base / 2],
+        [rim_bore_r() + weld, -base / 2]
     ]);
 }
 
@@ -52,8 +60,8 @@ module lug_spike() {
     y = lug_base_width / 2;
     linear_extrude(height = wheel_width)
         polygon([
-            [rim_bore_r() - 1,  y], [x,  y], [tip_r(), 0],
-            [x, -y], [rim_bore_r() - 1, -y]
+            [rim_bore_r() + weld,  y], [x,  y], [tip_r(), 0],
+            [x, -y], [rim_bore_r() + weld, -y]
         ]);
 }
 

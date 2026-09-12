@@ -10,8 +10,22 @@
 //    boss_top    how far the recess_r..hub_r ring carries on in z
 //  Adding a mower = adding one line to each function below.
 //
+//  115H, measured on the machine:
+//    shaft standing proud of its seat ............ 20.0 mm
+//    shaft still showing with the stock wheel on . 12.0 mm
+//    so the stock hub plate is about 8 mm thick
+//    pocket on the inner face of the stock wheel . 54.20 bore, 2.50 wall
+//    drive disc on the mower ..................... 47.60
+//    black surround around it .................... 60.42
+//    stock wheel, overall diameter ............... 240
+//  The donor STL this project started from was 262.4 over the lugs, 22 mm
+//  too big, which is why its tread scrubbed the bodywork.
+//  The drive disc carries raised radial ribs and the floor of that pocket
+//  carries matching radial marks, so the 115H drives through FACE TEETH
+//  and not through the bore. The bore only centres the wheel.
+//
 //  Suggested wheel settings per mower, from the donor models:
-//    husqvarna_115h  wheel_diameter 262.4  rim_diameter 240  width 32
+//    husqvarna_115h  wheel_diameter 240    rim_diameter 218  width 32
 //    husqvarna_nera  wheel_diameter 251    rim_diameter 234  width 30
 //
 //  NOTE ON TORQUE. Both wheels measured so far, the 115H and the NERA,
@@ -47,13 +61,16 @@ function hub_outer_r() =
 // so the pocket is 14 deep and the plate sits between 14 and 22.
 function hub_inset() =
     hub_type == "hex_drive" ? 0 :
-    hub_type == "husqvarna_115h" ? 7.5
+    hub_type == "husqvarna_115h" ? wheel_width - hub_plate_thickness
   : hub_type == "husqvarna_nera" ? 14
   : custom_hub_inset;
 
+// The pocket floor IS the face the wheel seats on, so the plate hangs a
+// pocket depth below the inner face and the plate thickness sets the rest.
+// Check on the 115H: 8 mm plate, 20 mm shaft, leaves 12 mm showing. Matches.
 function hub_plate_bot() =
     hub_type == "hex_drive" ? wheel_width :
-    hub_type == "husqvarna_115h" ? 16.5
+    hub_type == "husqvarna_115h" ? wheel_width
   : hub_type == "husqvarna_nera" ? 22
   : custom_hub_inset + custom_hub_plate;
 
@@ -69,6 +86,53 @@ function hub_boss_top() =
     hub_type == "hex_drive"      ? wheel_width
   : hub_type == "husqvarna_nera" ? wheel_width
   : max(hub_plate_bot(), custom_boss_top);
+
+// ---- mower side clearance --------------------------------------------
+// Radius of the pad that actually touches the drive disc.
+function seat_r()   = drive_disc_diameter / 2 - seat_margin;
+// Radius out to which the inner face is cut back, to clear the shroud.
+function relief_r() = shroud_od / 2 + shroud_margin;
+
+// Cut back everything on the inner face between the seating pad and the
+// far side of the shroud. Carved from the top in print orientation, so the
+// floor faces up and it costs nothing to print.
+module shroud_relief() {
+    assert(relief_r() < rim_bore_r() - 2,
+        str("The shroud relief reaches r=", relief_r(),
+            ", which is into the rim. Check shroud_od."));
+    echo(str("inner face: seating pad up to Ø", 2 * seat_r(),
+             " on a disc of Ø", drive_disc_diameter,
+             " | cut back ", shroud_clearance, " mm from Ø", 2 * seat_r(),
+             " out to Ø", 2 * relief_r(),
+             " | stationary shroud is Ø", shroud_od));
+    if (shroud_clearance > 0)
+        translate([0, 0, wheel_width - shroud_clearance])
+            rotate_extrude()
+                polygon([
+                    [seat_r(),   0],
+                    [relief_r(), 0],
+                    [relief_r(), shroud_clearance + 1],
+                    [seat_r(),   shroud_clearance + 1]
+                ]);
+}
+
+// ---- register ring ---------------------------------------------------
+// Bore of the surround, which is the hole the ring has to pass through.
+function groove_bore()  = drive_lip_od - 2 * drive_lip_wall;
+// Radial width of the groove the ring drops into.
+function groove_width() = (groove_bore() - drive_disc_diameter) / 2;
+
+function hub_register_od() =
+      register_mode == "none"      ? 0
+    : register_mode == "manual"    ? register_od
+    :                                groove_bore() - register_clearance;
+
+function hub_register_id() = hub_register_od() > 0
+    ? hub_register_od() - 2 * register_wall : 0;
+
+// Clearance left over the drive disc once the ring is placed, per side.
+function register_disc_gap() = hub_register_od() > 0
+    ? (hub_register_id() - drive_disc_diameter) / 2 : 0;
 
 // ---- solid body of the hub -------------------------------------------
 // The ring between recess_r and hub_r is filled all the way down to the
@@ -91,6 +155,26 @@ module hub_body() {
             [hub_recess_r(), hub_plate_bot()],
             [hub_bore_r(),   hub_plate_bot()]
         ]);
+}
+
+// Annular wall on the inner face. Vertical, so it costs nothing to print.
+module hub_register() {
+    if (hub_register_od() > 0) {
+        assert(register_disc_gap() > 0.05,
+            str("The register ring does not clear the drive disc. Its bore is ",
+                hub_register_id(), " against a disc of ", drive_disc_diameter,
+                ". Thin register_wall, or check drive_lip_wall."));
+        echo(str("register ring: ", hub_register_id(), " bore, ",
+                 hub_register_od(), " outside, groove is ", groove_width(),
+                 " wide, ", register_disc_gap(), " left over the disc"));
+        rotate_extrude()
+            polygon([
+                [hub_register_id() / 2, hub_plate_bot() - weld],
+                [hub_register_od() / 2, hub_plate_bot() - weld],
+                [hub_register_od() / 2, wheel_width],
+                [hub_register_id() / 2, wheel_width]
+            ]);
+    }
 }
 
 // ---- the hole through it ---------------------------------------------
