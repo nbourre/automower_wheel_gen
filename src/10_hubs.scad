@@ -96,7 +96,9 @@ function relief_r() = shroud_od / 2 + shroud_margin;
 // Cut back everything on the inner face between the seating pad and the
 // far side of the shroud. Carved from the top in print orientation, so the
 // floor faces up and it costs nothing to print.
-module shroud_relief() {
+// Kept for reference. The relief now lives inside hub_outline(), so this is
+// no longer subtracted from anything.
+module shroud_relief_unused() {
     assert(relief_r() < rim_bore_r() - 2,
         str("The shroud relief reaches r=", relief_r(),
             ", which is into the rim. Check shroud_od."));
@@ -138,23 +140,29 @@ function register_disc_gap() = hub_register_od() > 0
 // The ring between recess_r and hub_r is filled all the way down to the
 // build plate. That removes the only awkward overhang of the original
 // design and gives the hub a wide first layer.
+// Radial outline of the hub, as an explicit point list so it can be both
+// revolved and shelled. ro is where it stops radially, zf is its floor:
+// the wheel passes hub_outer_r() and 0, the shell test passes its own.
+function hub_outline(ro, zf) =
+    hub_style() == "solid"
+    ? [[hub_bore_r(), zf], [ro, zf], [ro, wheel_width], [hub_bore_r(), wheel_width]]
+    : concat(
+        [[hub_bore_r(),   max(hub_inset(), zf)],
+         [hub_recess_r(), max(hub_inset(), zf)],
+         [hub_recess_r(), zf],
+         [ro,             zf],
+         [ro,             hub_boss_top()]],
+        (shroud_clearance > 0 && relief_r() < ro)
+          ? [[relief_r(), hub_boss_top()],
+             [relief_r(), wheel_width - shroud_clearance],
+             [seat_r(),   wheel_width - shroud_clearance],
+             [seat_r(),   wheel_width]]
+          : [],
+        [[hub_bore_r(), hub_plate_bot()]]
+      );
+
 module hub_body() {
-    if (hub_style() == "solid")
-        rotate_extrude()
-            polygon([[hub_bore_r(), 0], [hub_outer_r(), 0],
-                     [hub_outer_r(), wheel_width], [hub_bore_r(), wheel_width]]);
-    else
-    rotate_extrude()
-        polygon([
-            [hub_bore_r(),  hub_inset()],
-            [hub_recess_r(), hub_inset()],
-            [hub_recess_r(), 0],
-            [hub_outer_r(),  0],
-            [hub_outer_r(),  hub_boss_top()],
-            [hub_recess_r(), hub_boss_top()],
-            [hub_recess_r(), hub_plate_bot()],
-            [hub_bore_r(),   hub_plate_bot()]
-        ]);
+    rotate_extrude() polygon(hub_outline(hub_outer_r(), 0));
 }
 
 // Annular wall on the inner face. Vertical, so it costs nothing to print.

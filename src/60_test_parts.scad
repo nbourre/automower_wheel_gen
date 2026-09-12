@@ -15,7 +15,7 @@
 /* [Fit test] */
 // Which test part to output. One at a time keeps each print short: check
 // the bore first, then the hub interface, then the overall diameter.
-fit_test_part = "all";          // [all:All three, gauge:Bore gauge only, coupon:Hub coupon only, skeleton:Skeleton only]
+fit_test_part = "shell";        // [shell:Hub shell, fastest, gauge:Bore gauge only, skeleton:Skeleton only, coupon:Hub coupon, solid, all:All four]
 // Clearances to try, added to the bore RADIUS, smallest first.
 gauge_steps = [0, 0.10, 0.15, 0.20, 0.30];
 // Text height on the gauge (mm). 0 removes the labels.
@@ -23,6 +23,15 @@ gauge_text = 5;                 // [0:0.5:12]
 gauge_text_depth = 0.6;         // [0.2:0.1:2]
 // How much of the wheel around the hub to keep on the coupon (mm)
 coupon_margin = 20;             // [5:1:60]
+// -- hub shell. The cheapest test there is: only the surfaces that have to
+// mate, in a thin wall, printed mating-face-down so those surfaces are the
+// first layers, which are the most accurate ones an FDM printer makes.
+shell_wall = 1.2;               // [0.8:0.1:4]
+// How much of the hub to keep, measured back from the seating face
+shell_depth = 12;               // [4:0.5:40]
+// How far past the hub the flange runs, for a footprint and a grip
+shell_margin = 6;               // [0:0.5:40]
+
 // Skeleton: number of arms reaching out to full diameter
 skeleton_arms = 3;              // [2:1:8]
 // Angular width of the rim segment carried at the end of each arm (deg)
@@ -88,7 +97,6 @@ module hub_coupon() {
                 union() { hub_body(); face_skin(); spokes(); }
                 cylinder(r = hub_outer_r() + coupon_margin, h = wheel_width);
             }
-            shroud_relief();
             hub_bore();
         }
         // Stamp the clearance used, so a coupon found in a drawer in six
@@ -146,7 +154,35 @@ module skeleton() {
             }
             build_plate_box();
         }
-        shroud_relief();
         hub_bore();
     }
+}
+
+
+// ---- part 4: hub shell ----------------------------------------------
+// Everything that has to fit the mower, and nothing else. The outline comes
+// from the same hub_outline() the wheel uses, so the bore, the seating pad,
+// the shroud relief and the plate thickness are all the real ones.
+//
+// It is generated flipped: the mower-facing side goes on the build plate.
+// Two reasons. Those are the surfaces that have to be right, and first
+// layers are the most accurate ones you get. And the hollow then opens
+// upwards, so the whole thing prints with no support and no bridging worth
+// the name.
+function shell_r() = hub_outer_r() + shell_margin;
+function shell_z0() = max(0, wheel_width - shell_depth);
+
+module hub_shell() {
+    rotate([180, 0, 0]) translate([0, 0, -wheel_width])
+        difference() {
+            rotate_extrude() polygon(hub_outline(shell_r(), shell_z0()));
+            // Hollow. The cavity is the same outline pulled in by one wall,
+            // but taken from an outline whose floor sits well below the real
+            // one. Offsetting cannot then lift the cavity off that floor, so
+            // the shell comes out open on that side instead of sealed.
+            rotate_extrude()
+                offset(delta = -shell_wall)
+                    polygon(hub_outline(shell_r(), shell_z0() - 10));
+            hub_bore();
+        }
 }

@@ -88,7 +88,6 @@ module one_piece_wheel() {
     fit_guard();
     difference() {
         intersection() { wheel_solid(); build_plate_box(); }
-        shroud_relief();
         hub_bore();
     }
 }

@@ -115,7 +115,6 @@ module hub_part() {
         }
         build_plate_box();
         }
-        shroud_relief();
         hub_bore();
     }
 }

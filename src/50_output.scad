@@ -26,6 +26,7 @@ module part_key()   { lock_key(); }
 module part_gauge() { bore_gauge(); }
 module part_coupon(){ apply_side() hub_coupon(); }
 module part_skeleton(){ apply_side() skeleton(); }
+module part_shell()   { apply_side() hub_shell(); }
 
 // ---- MakerWorld plates ----------------------------------------------
 // In fit test mode the user can ask for one part at a time, so that each
@@ -34,22 +35,23 @@ module fit_part(which) {
     if      (which == "gauge")    part_gauge();
     else if (which == "coupon")   part_coupon();
     else if (which == "skeleton") part_skeleton();
+    else if (which == "shell")    part_shell();
 }
 
 module mw_plate_1() {
     if      (build_style == "fit_test")
-        fit_part(fit_test_part == "all" ? "gauge" : fit_test_part);
+        fit_part(fit_test_part == "all" ? "shell" : fit_test_part);
     else if (build_style == "two_piece") part_ring();
     else                                 part_wheel();
 }
 
 module mw_plate_2() {
-    if      (build_style == "fit_test")  { if (fit_test_part == "all") part_skeleton(); }
+    if      (build_style == "fit_test")  { if (fit_test_part == "all") part_gauge(); }
     else if (build_style == "two_piece") part_hub();
 }
 
 module mw_plate_3() {
-    if (build_style == "fit_test" && fit_test_part == "all") part_coupon();
+    if (build_style == "fit_test" && fit_test_part == "all") part_skeleton();
     if (build_style == "two_piece")
         for (i = [0 : bayonet_tabs - 1])
             translate([i * (bayonet_depth + 14), 0, 0]) part_key();
@@ -79,5 +81,6 @@ if (standalone) {
     else if (render_target == "gauge") part_gauge();
     else if (render_target == "coupon") part_coupon();
     else if (render_target == "skeleton") part_skeleton();
+    else if (render_target == "shell") part_shell();
     else                               mw_assembly_view();
 }

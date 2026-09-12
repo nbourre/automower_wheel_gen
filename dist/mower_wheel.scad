@@ -153,7 +153,7 @@ ramp_angle = 55;                // roof slope, must stay above 45
 /* [Fit test] */
 // Which test part to output. One at a time keeps each print short: check
 // the bore first, then the hub interface, then the overall diameter.
-fit_test_part = "all";          // [all:All three, gauge:Bore gauge only, coupon:Hub coupon only, skeleton:Skeleton only]
+fit_test_part = "shell";        // [shell:Hub shell, fastest, gauge:Bore gauge only, skeleton:Skeleton only, coupon:Hub coupon, solid, all:All four]
 // Clearances to try, added to the bore RADIUS, smallest first.
 gauge_steps = [0, 0.10, 0.15, 0.20, 0.30];
 // Text height on the gauge (mm). 0 removes the labels.
@@ -161,6 +161,15 @@ gauge_text = 5;                 // [0:0.5:12]
 gauge_text_depth = 0.6;         // [0.2:0.1:2]
 // How much of the wheel around the hub to keep on the coupon (mm)
 coupon_margin = 20;             // [5:1:60]
+// -- hub shell. The cheapest test there is: only the surfaces that have to
+// mate, in a thin wall, printed mating-face-down so those surfaces are the
+// first layers, which are the most accurate ones an FDM printer makes.
+shell_wall = 1.2;               // [0.8:0.1:4]
+// How much of the hub to keep, measured back from the seating face
+shell_depth = 12;               // [4:0.5:40]
+// How far past the hub the flange runs, for a footprint and a grip
+shell_margin = 6;               // [0:0.5:40]
+
 // Skeleton: number of arms reaching out to full diameter
 skeleton_arms = 3;              // [2:1:8]
 // Angular width of the rim segment carried at the end of each arm (deg)
@@ -301,7 +310,9 @@ function relief_r() = shroud_od / 2 + shroud_margin;
 // Cut back everything on the inner face between the seating pad and the
 // far side of the shroud. Carved from the top in print orientation, so the
 // floor faces up and it costs nothing to print.
-module shroud_relief() {
+// Kept for reference. The relief now lives inside hub_outline(), so this is
+// no longer subtracted from anything.
+module shroud_relief_unused() {
     assert(relief_r() < rim_bore_r() - 2,
         str("The shroud relief reaches r=", relief_r(),
             ", which is into the rim. Check shroud_od."));
@@ -343,23 +354,29 @@ function register_disc_gap() = hub_register_od() > 0
 // The ring between recess_r and hub_r is filled all the way down to the
 // build plate. That removes the only awkward overhang of the original
 // design and gives the hub a wide first layer.
+// Radial outline of the hub, as an explicit point list so it can be both
+// revolved and shelled. ro is where it stops radially, zf is its floor:
+// the wheel passes hub_outer_r() and 0, the shell test passes its own.
+function hub_outline(ro, zf) =
+    hub_style() == "solid"
+    ? [[hub_bore_r(), zf], [ro, zf], [ro, wheel_width], [hub_bore_r(), wheel_width]]
+    : concat(
+        [[hub_bore_r(),   max(hub_inset(), zf)],
+         [hub_recess_r(), max(hub_inset(), zf)],
+         [hub_recess_r(), zf],
+         [ro,             zf],
+         [ro,             hub_boss_top()]],
+        (shroud_clearance > 0 && relief_r() < ro)
+          ? [[relief_r(), hub_boss_top()],
+             [relief_r(), wheel_width - shroud_clearance],
+             [seat_r(),   wheel_width - shroud_clearance],
+             [seat_r(),   wheel_width]]
+          : [],
+        [[hub_bore_r(), hub_plate_bot()]]
+      );
+
 module hub_body() {
-    if (hub_style() == "solid")
-        rotate_extrude()
-            polygon([[hub_bore_r(), 0], [hub_outer_r(), 0],
-                     [hub_outer_r(), wheel_width], [hub_bore_r(), wheel_width]]);
-    else
-    rotate_extrude()
-        polygon([
-            [hub_bore_r(),  hub_inset()],
-            [hub_recess_r(), hub_inset()],
-            [hub_recess_r(), 0],
-            [hub_outer_r(),  0],
-            [hub_outer_r(),  hub_boss_top()],
-            [hub_recess_r(), hub_boss_top()],
-            [hub_recess_r(), hub_plate_bot()],
-            [hub_bore_r(),   hub_plate_bot()]
-        ]);
+    rotate_extrude() polygon(hub_outline(hub_outer_r(), 0));
 }
 
 // Annular wall on the inner face. Vertical, so it costs nothing to print.
@@ -626,7 +643,6 @@ module one_piece_wheel() {
     fit_guard();
     difference() {
         intersection() { wheel_solid(); build_plate_box(); }
-        shroud_relief();
         hub_bore();
     }
 }
@@ -733,7 +749,6 @@ module hub_part() {
         }
         build_plate_box();
         }
-        shroud_relief();
         hub_bore();
     }
 }
@@ -859,7 +874,6 @@ module hub_coupon() {
                 union() { hub_body(); face_skin(); spokes(); }
                 cylinder(r = hub_outer_r() + coupon_margin, h = wheel_width);
             }
-            shroud_relief();
             hub_bore();
         }
         // Stamp the clearance used, so a coupon found in a drawer in six
@@ -917,9 +931,37 @@ module skeleton() {
             }
             build_plate_box();
         }
-        shroud_relief();
         hub_bore();
     }
+}
+
+
+// ---- part 4: hub shell ----------------------------------------------
+// Everything that has to fit the mower, and nothing else. The outline comes
+// from the same hub_outline() the wheel uses, so the bore, the seating pad,
+// the shroud relief and the plate thickness are all the real ones.
+//
+// It is generated flipped: the mower-facing side goes on the build plate.
+// Two reasons. Those are the surfaces that have to be right, and first
+// layers are the most accurate ones you get. And the hollow then opens
+// upwards, so the whole thing prints with no support and no bridging worth
+// the name.
+function shell_r() = hub_outer_r() + shell_margin;
+function shell_z0() = max(0, wheel_width - shell_depth);
+
+module hub_shell() {
+    rotate([180, 0, 0]) translate([0, 0, -wheel_width])
+        difference() {
+            rotate_extrude() polygon(hub_outline(shell_r(), shell_z0()));
+            // Hollow. The cavity is the same outline pulled in by one wall,
+            // but taken from an outline whose floor sits well below the real
+            // one. Offsetting cannot then lift the cavity off that floor, so
+            // the shell comes out open on that side instead of sealed.
+            rotate_extrude()
+                offset(delta = -shell_wall)
+                    polygon(hub_outline(shell_r(), shell_z0() - 10));
+            hub_bore();
+        }
 }
 
 
@@ -944,6 +986,7 @@ module part_key()   { lock_key(); }
 module part_gauge() { bore_gauge(); }
 module part_coupon(){ apply_side() hub_coupon(); }
 module part_skeleton(){ apply_side() skeleton(); }
+module part_shell()   { apply_side() hub_shell(); }
 
 // ---- MakerWorld plates ----------------------------------------------
 // In fit test mode the user can ask for one part at a time, so that each
@@ -952,22 +995,23 @@ module fit_part(which) {
     if      (which == "gauge")    part_gauge();
     else if (which == "coupon")   part_coupon();
     else if (which == "skeleton") part_skeleton();
+    else if (which == "shell")    part_shell();
 }
 
 module mw_plate_1() {
     if      (build_style == "fit_test")
-        fit_part(fit_test_part == "all" ? "gauge" : fit_test_part);
+        fit_part(fit_test_part == "all" ? "shell" : fit_test_part);
     else if (build_style == "two_piece") part_ring();
     else                                 part_wheel();
 }
 
 module mw_plate_2() {
-    if      (build_style == "fit_test")  { if (fit_test_part == "all") part_skeleton(); }
+    if      (build_style == "fit_test")  { if (fit_test_part == "all") part_gauge(); }
     else if (build_style == "two_piece") part_hub();
 }
 
 module mw_plate_3() {
-    if (build_style == "fit_test" && fit_test_part == "all") part_coupon();
+    if (build_style == "fit_test" && fit_test_part == "all") part_skeleton();
     if (build_style == "two_piece")
         for (i = [0 : bayonet_tabs - 1])
             translate([i * (bayonet_depth + 14), 0, 0]) part_key();
@@ -997,5 +1041,6 @@ if (standalone) {
     else if (render_target == "gauge") part_gauge();
     else if (render_target == "coupon") part_coupon();
     else if (render_target == "skeleton") part_skeleton();
+    else if (render_target == "shell") part_shell();
     else                               mw_assembly_view();
 }

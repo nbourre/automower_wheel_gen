@@ -9,6 +9,10 @@ numbers rather than remodelling anything.
 
 ---
 
+## The parameters, on a drawing
+
+![Parameter map](docs/parameters.png)
+
 ## How it prints with no support
 
 The wheel prints face down. The outer face is a solid skin sitting flat on the
@@ -45,6 +49,37 @@ takes up print tolerance.
 The only overhang left in the whole model is the ceiling of the hub recess, an
 annulus around the axle bore that bridges over a shallow pocket. It closes on
 its own.
+
+## Why there is a solid face at all
+
+A fair question is whether the face skin earns its keep, or whether thicker
+spokes would do the same job for less. The arithmetic says no, and it is worth
+writing down because the answer is counter-intuitive.
+
+The skin carries torque between hub and rim **in shear**. Radial spokes carry it
+**in bending**. At a reference 4 Nm, on a 240 mm wheel in PETG:
+
+| | volume | rim wind-up |
+|---|---|---|
+| skin, 2.4 mm | 80.9 cm3 | 0.015 mm |
+| 12 spokes, 3 mm | 85.2 cm3 | 0.79 mm |
+| 12 spokes, 6 mm | 170.5 cm3 | 0.10 mm |
+| 12 spokes, 11 mm | 312.6 cm3 | 0.016 mm |
+
+For the same material the skin is about fifty times stiffer. Worse, spoke
+stiffness goes as thickness cubed while volume goes as thickness, so buying
+stiffness by thickening spokes is the poorest trade in the whole design: drop
+the skin and go to 6 mm spokes and the wheel gets 32 cm3 **heavier** while still
+being eight times softer.
+
+Two things do work. Thinning the skin to 1.6 mm saves 27 cm3 and still leaves it
+thirty six times stiffer than the spokes alone: the best value per gram here.
+And triangulating the web, so the members work in tension and compression rather
+than bending, buys the stiffness back honestly. Straight radial spokes do not.
+
+Lateral loads are a different story: there the spokes work about their strong
+axis and are 114 times stiffer than in the tangential direction, so the skin
+contributes little and can go without consequence.
 
 ## Which way round does it go
 
@@ -193,9 +228,26 @@ Default steps are 0, 0.10, 0.15, 0.20 and 0.30 mm on the radius. Edit
 `gauge_steps` if your printer runs well off size. On the 115H the bar comes out
 133 x 35 x 9 mm.
 
-`fit_test_part` picks one part at a time so each print stays short: check the
-bore first, then the hub interface, then the overall diameter. Left on `all`,
-plate 1 is the gauge, plate 2 the skeleton, plate 3 the coupon.
+`fit_test_part` picks one part at a time so each print stays short. The order
+that wastes least filament: **shell** to prove the hub, **gauge** to settle the
+bore clearance, **skeleton** to check the overall diameter against the
+bodywork, and **coupon** only if you want the hub in full thickness. Left on
+`all` you get shell, gauge and skeleton on three plates.
+
+**The hub shell** is the one to print first, and usually the only one you
+need. It is the hub reduced to the surfaces that have to mate: the bore, the
+seating pad, the shroud relief and the plate thickness, in a 1.2 mm wall. Around
+84 mm across, 12 mm tall, 14 cm3, well under half an hour.
+
+It is generated flipped, mating-face-down, for two reasons. Those surfaces are
+the ones that have to be right, and first layers are the most accurate ones an
+FDM printer makes. And the hollow then opens upwards, so it prints with no
+support. The only unsupported surface left is an internal ceiling 6.8 mm up,
+bridging 14 mm across a face that touches nothing: let it droop.
+
+The outline comes from the same `hub_outline()` the wheel uses, so there is no
+separate copy of the geometry to drift out of step. `shell_wall`, `shell_depth`
+and `shell_margin` make it lighter or beefier.
 
 **The skeleton** is the whole wheel reduced to what you actually need to test:
 the real hub, three arms out to the real overall diameter, and a real piece of
